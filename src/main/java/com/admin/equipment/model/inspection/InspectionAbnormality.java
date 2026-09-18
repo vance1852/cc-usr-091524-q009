@@ -74,6 +74,48 @@ public class InspectionAbnormality {
     @Column(name = "closed_loop")
     private Boolean closedLoop = false;
 
+    @Column(name = "closed_loop_at")
+    private LocalDateTime closedLoopAt;
+
+    // ---- 原因分析（严重异常 high/urgent 关闭前必须获批）----
+    @Column(name = "cause_analysis", length = 2048)
+    private String causeAnalysis = "";
+
+    @Column(name = "cause_submitted_by", length = 64)
+    private String causeSubmittedBy = "";
+
+    @Column(name = "cause_submitted_at")
+    private LocalDateTime causeSubmittedAt;
+
+    // null 未审批 / true 批准 / false 驳回
+    @Column(name = "cause_approved")
+    private Boolean causeApproved;
+
+    @Column(name = "cause_approved_by", length = 64)
+    private String causeApprovedBy = "";
+
+    @Column(name = "cause_approved_at")
+    private LocalDateTime causeApprovedAt;
+
+    @Column(name = "cause_reject_reason", length = 512)
+    private String causeRejectReason = "";
+
+    // ---- 风险接受（长期措施无法按期完成时登记，绝不视为闭环）----
+    @Column(name = "risk_accepted")
+    private Boolean riskAccepted = false;
+
+    @Column(name = "risk_accepted_by", length = 64)
+    private String riskAcceptedBy = "";
+
+    @Column(name = "risk_accepted_at")
+    private LocalDateTime riskAcceptedAt;
+
+    @Column(name = "risk_expiry_date")
+    private LocalDateTime riskExpiryDate;
+
+    @Column(name = "risk_reason", length = 1024)
+    private String riskReason = "";
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getTaskId() { return taskId; }
@@ -118,4 +160,35 @@ public class InspectionAbnormality {
     public void setResolvedAt(LocalDateTime resolvedAt) { this.resolvedAt = resolvedAt; }
     public Boolean getClosedLoop() { return closedLoop; }
     public void setClosedLoop(Boolean closedLoop) { this.closedLoop = closedLoop; }
+    public LocalDateTime getClosedLoopAt() { return closedLoopAt; }
+    public void setClosedLoopAt(LocalDateTime closedLoopAt) { this.closedLoopAt = closedLoopAt; }
+    public String getCauseAnalysis() { return causeAnalysis; }
+    public void setCauseAnalysis(String causeAnalysis) { this.causeAnalysis = causeAnalysis; }
+    public String getCauseSubmittedBy() { return causeSubmittedBy; }
+    public void setCauseSubmittedBy(String causeSubmittedBy) { this.causeSubmittedBy = causeSubmittedBy; }
+    public LocalDateTime getCauseSubmittedAt() { return causeSubmittedAt; }
+    public void setCauseSubmittedAt(LocalDateTime causeSubmittedAt) { this.causeSubmittedAt = causeSubmittedAt; }
+    public Boolean getCauseApproved() { return causeApproved; }
+    public void setCauseApproved(Boolean causeApproved) { this.causeApproved = causeApproved; }
+    public String getCauseApprovedBy() { return causeApprovedBy; }
+    public void setCauseApprovedBy(String causeApprovedBy) { this.causeApprovedBy = causeApprovedBy; }
+    public LocalDateTime getCauseApprovedAt() { return causeApprovedAt; }
+    public void setCauseApprovedAt(LocalDateTime causeApprovedAt) { this.causeApprovedAt = causeApprovedAt; }
+    public String getCauseRejectReason() { return causeRejectReason; }
+    public void setCauseRejectReason(String causeRejectReason) { this.causeRejectReason = causeRejectReason; }
+    public Boolean getRiskAccepted() { return riskAccepted; }
+    public void setRiskAccepted(Boolean riskAccepted) { this.riskAccepted = riskAccepted; }
+    public String getRiskAcceptedBy() { return riskAcceptedBy; }
+    public void setRiskAcceptedBy(String riskAcceptedBy) { this.riskAcceptedBy = riskAcceptedBy; }
+    public LocalDateTime getRiskAcceptedAt() { return riskAcceptedAt; }
+    public void setRiskAcceptedAt(LocalDateTime riskAcceptedAt) { this.riskAcceptedAt = riskAcceptedAt; }
+    public LocalDateTime getRiskExpiryDate() { return riskExpiryDate; }
+    public void setRiskExpiryDate(LocalDateTime riskExpiryDate) { this.riskExpiryDate = riskExpiryDate; }
+    public String getRiskReason() { return riskReason; }
+    public void setRiskReason(String riskReason) { this.riskReason = riskReason; }
+
+    /** 严重异常：high / urgent，原因分析获批前不得闭环 */
+    public boolean isCriticalSeverity() {
+        return "high".equals(severity) || "urgent".equals(severity);
+    }
 }

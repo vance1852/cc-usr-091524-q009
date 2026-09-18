@@ -24,7 +24,7 @@ public class WorkOrder {
     @Column(length = 16)
     private String priority = "medium";
 
-    // 状态：open 待处理 / in_progress 处理中 / done 已完成
+    // 状态：open 待处理 / in_progress 处理中 / done 已完成 / cancelled 已取消
     @Column(length = 16)
     private String status = "open";
 

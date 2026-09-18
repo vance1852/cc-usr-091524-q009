@@ -31,6 +31,7 @@ public class InspectionTaskService {
     private final WorkOrderRepository workOrderRepo;
     private final InspectionTemplateService templateService;
     private final InspectionPlanService planService;
+    private final AbnormalityRectificationService rectificationService;
 
     public InspectionTaskService(InspectionTaskRepository taskRepo,
                                  InspectionTaskPointRepository taskPointRepo,
@@ -43,7 +44,8 @@ public class InspectionTaskService {
                                  EquipmentRepository equipmentRepo,
                                  WorkOrderRepository workOrderRepo,
                                  InspectionTemplateService templateService,
-                                 InspectionPlanService planService) {
+                                 InspectionPlanService planService,
+                                 AbnormalityRectificationService rectificationService) {
         this.taskRepo = taskRepo;
         this.taskPointRepo = taskPointRepo;
         this.recordRepo = recordRepo;
@@ -56,6 +58,7 @@ public class InspectionTaskService {
         this.workOrderRepo = workOrderRepo;
         this.templateService = templateService;
         this.planService = planService;
+        this.rectificationService = rectificationService;
     }
 
     public List<InspectionTask> listAll() {
@@ -427,21 +430,9 @@ public class InspectionTaskService {
 
     @Transactional
     public InspectionAbnormality recheckAbnormality(Long abnormalityId, String result, String recheckBy) {
-        InspectionAbnormality ab = abnormalityRepo.findById(abnormalityId)
-                .orElseThrow(() -> new IllegalArgumentException("异常不存在"));
-        ab.setRecheckResult(result);
-        ab.setRecheckAt(LocalDateTime.now());
-        ab.setRecheckBy(recheckBy == null ? "" : recheckBy);
-        if ("passed".equals(result)) {
-            ab.setStatus("resolved");
-            ab.setClosedLoop(true);
-            ab.setResolvedAt(LocalDateTime.now());
-        } else if ("failed".equals(result)) {
-            ab.setStatus("recheck_failed");
-        } else {
-            ab.setStatus("rechecked");
-        }
-        return abnormalityRepo.save(ab);
+        // 复检只登记结果（append-only 事件），是否闭环由整改领域服务统一裁决，
+        // 避免“复检通过即闭环”掩盖未完成的措施/原因分析。
+        return rectificationService.recheck(abnormalityId, result, recheckBy);
     }
 
     private InspectionAbnormality createAbnormalityIfAbsent(InspectionTask task, InspectionTaskPoint tp,

@@ -3,11 +3,11 @@ package com.admin.equipment.web;
 import com.admin.equipment.model.WorkOrder;
 import com.admin.equipment.repo.EquipmentRepository;
 import com.admin.equipment.repo.WorkOrderRepository;
+import com.admin.equipment.service.inspection.AbnormalityRectificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,14 +18,18 @@ public class WorkOrderController {
 
     private static final Set<String> TYPES = Set.of("inspection", "repair", "maintenance");
     private static final Set<String> PRIORITIES = Set.of("low", "medium", "high", "urgent");
-    private static final Set<String> STATUSES = Set.of("open", "in_progress", "done");
+    // open 待处理 / in_progress 处理中 / done 已完成 / cancelled 已取消
+    private static final Set<String> STATUSES = Set.of("open", "in_progress", "done", "cancelled");
 
     private final WorkOrderRepository repo;
     private final EquipmentRepository equipmentRepo;
+    private final AbnormalityRectificationService rectificationService;
 
-    public WorkOrderController(WorkOrderRepository repo, EquipmentRepository equipmentRepo) {
+    public WorkOrderController(WorkOrderRepository repo, EquipmentRepository equipmentRepo,
+                               AbnormalityRectificationService rectificationService) {
         this.repo = repo;
         this.equipmentRepo = equipmentRepo;
+        this.rectificationService = rectificationService;
     }
 
     public record WorkOrderRequest(Long equipmentId, String title, String type, String priority,
@@ -66,19 +70,18 @@ public class WorkOrderController {
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody StatusRequest req) {
-        WorkOrder w = repo.findById(id).orElse(null);
-        if (w == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("detail", "工单不存在"));
-        }
         if (req.status() == null || !STATUSES.contains(req.status())) {
             return ResponseEntity.unprocessableEntity().body(Map.of("detail", "状态不合法"));
         }
-        w.setStatus(req.status());
-        if ("done".equals(req.status())) {
-            w.setClosedAt(LocalDateTime.now());
-        } else {
-            w.setClosedAt(null);
+        if (!repo.existsById(id)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("detail", "工单不存在"));
         }
-        return ResponseEntity.ok(repo.save(w));
+        try {
+            // 统一入口：工单状态与关联异常闭环状态在同一事务内按规则同步
+            WorkOrder w = rectificationService.applyWorkOrderStatusChange(id, req.status());
+            return ResponseEntity.ok(w);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("detail", e.getMessage()));
+        }
     }
 }
