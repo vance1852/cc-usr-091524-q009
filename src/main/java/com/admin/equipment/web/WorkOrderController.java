@@ -3,6 +3,7 @@ package com.admin.equipment.web;
 import com.admin.equipment.model.WorkOrder;
 import com.admin.equipment.repo.EquipmentRepository;
 import com.admin.equipment.repo.WorkOrderRepository;
+import com.admin.equipment.service.inspection.RectificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,14 +19,18 @@ public class WorkOrderController {
 
     private static final Set<String> TYPES = Set.of("inspection", "repair", "maintenance");
     private static final Set<String> PRIORITIES = Set.of("low", "medium", "high", "urgent");
-    private static final Set<String> STATUSES = Set.of("open", "in_progress", "done");
+    // open 待处理 / in_progress 处理中 / done 已完成 / cancelled 已取消
+    private static final Set<String> STATUSES = Set.of("open", "in_progress", "done", "cancelled");
 
     private final WorkOrderRepository repo;
     private final EquipmentRepository equipmentRepo;
+    private final RectificationService rectificationService;
 
-    public WorkOrderController(WorkOrderRepository repo, EquipmentRepository equipmentRepo) {
+    public WorkOrderController(WorkOrderRepository repo, EquipmentRepository equipmentRepo,
+                               RectificationService rectificationService) {
         this.repo = repo;
         this.equipmentRepo = equipmentRepo;
+        this.rectificationService = rectificationService;
     }
 
     public record WorkOrderRequest(Long equipmentId, String title, String type, String priority,
@@ -73,12 +78,23 @@ public class WorkOrderController {
         if (req.status() == null || !STATUSES.contains(req.status())) {
             return ResponseEntity.unprocessableEntity().body(Map.of("detail", "状态不合法"));
         }
+        String previousStatus = w.getStatus();
         w.setStatus(req.status());
         if ("done".equals(req.status())) {
             w.setClosedAt(LocalDateTime.now());
+        } else if ("cancelled".equals(req.status())) {
+            w.setClosedAt(LocalDateTime.now());
         } else {
-            w.setClosedAt(null);
+            // 重新打开（done/cancelled -> open/in_progress）：清除关闭时间
+            if (!req.status().equals(previousStatus)) {
+                w.setClosedAt(null);
+            }
         }
-        return ResponseEntity.ok(repo.save(w));
+        WorkOrder saved = repo.save(w);
+
+        // 同步幂等：重复回调（状态未变化 / 同步已完成）不会产生重复事件或错误翻转闭环，
+        // 始终调用以便“工单已保存但联动失败”时可随下次回调恢复。
+        rectificationService.syncWorkOrderStatus(id, previousStatus, req.status());
+        return ResponseEntity.ok(saved);
     }
 }

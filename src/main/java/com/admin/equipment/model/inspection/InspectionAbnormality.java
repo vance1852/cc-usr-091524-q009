@@ -74,6 +74,47 @@ public class InspectionAbnormality {
     @Column(name = "closed_loop")
     private Boolean closedLoop = false;
 
+    // ===== 原因分析（严重异常闭环前必须获批） =====
+
+    @Column(name = "cause_analysis", length = 2048)
+    private String causeAnalysis;
+
+    @Column(name = "cause_submitted_by", length = 64)
+    private String causeSubmittedBy;
+
+    @Column(name = "cause_submitted_at")
+    private LocalDateTime causeSubmittedAt;
+
+    /** null 未审批 / true 获批 / false 驳回。 */
+    @Column(name = "cause_approved")
+    private Boolean causeApproved;
+
+    @Column(name = "cause_approved_by", length = 64)
+    private String causeApprovedBy;
+
+    @Column(name = "cause_approved_at")
+    private LocalDateTime causeApprovedAt;
+
+    @Column(name = "cause_comment", length = 512)
+    private String causeComment;
+
+    // ===== 工单联动（不删除既有复检记录） =====
+
+    /** 最近一次同步到的工单状态，便于排查联动规则。 */
+    @Column(name = "wo_synced_status", length = 16)
+    private String woSyncedStatus;
+
+    /** 工单被取消的时间；闭环因此被解除时记录。 */
+    @Column(name = "wo_cancelled_at")
+    private LocalDateTime woCancelledAt;
+
+    /**
+     * 工单完成后又被重新打开的时间。
+     * 若复检发生在该时间之前，则该复检结果不再满足闭环条件，必须重新复检。
+     */
+    @Column(name = "wo_reopened_at")
+    private LocalDateTime woReopenedAt;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getTaskId() { return taskId; }
@@ -118,4 +159,25 @@ public class InspectionAbnormality {
     public void setResolvedAt(LocalDateTime resolvedAt) { this.resolvedAt = resolvedAt; }
     public Boolean getClosedLoop() { return closedLoop; }
     public void setClosedLoop(Boolean closedLoop) { this.closedLoop = closedLoop; }
+    public String getCauseAnalysis() { return causeAnalysis; }
+    public void setCauseAnalysis(String causeAnalysis) { this.causeAnalysis = causeAnalysis; }
+    public String getCauseSubmittedBy() { return causeSubmittedBy; }
+    public void setCauseSubmittedBy(String causeSubmittedBy) { this.causeSubmittedBy = causeSubmittedBy; }
+    public LocalDateTime getCauseSubmittedAt() { return causeSubmittedAt; }
+    public void setCauseSubmittedAt(LocalDateTime causeSubmittedAt) { this.causeSubmittedAt = causeSubmittedAt; }
+    public Boolean getCauseApproved() { return causeApproved; }
+    public void setCauseApproved(Boolean causeApproved) { this.causeApproved = causeApproved; }
+    public String getCauseApprovedBy() { return causeApprovedBy; }
+    public void setCauseApprovedBy(String causeApprovedBy) { this.causeApprovedBy = causeApprovedBy; }
+    public LocalDateTime getCauseApprovedAt() { return causeApprovedAt; }
+    public void setCauseApprovedAt(LocalDateTime causeApprovedAt) { this.causeApprovedAt = causeApprovedAt; }
+    public String getCauseComment() { return causeComment; }
+    public void setCauseComment(String causeComment) { this.causeComment = causeComment; }
+    public String getWoSyncedStatus() { return woSyncedStatus; }
+    public void setWoSyncedStatus(String woSyncedStatus) { this.woSyncedStatus = woSyncedStatus; }
+    public LocalDateTime getWoCancelledAt() { return woCancelledAt; }
+    public void setWoCancelledAt(LocalDateTime woCancelledAt) { this.woCancelledAt = woCancelledAt; }
+    public LocalDateTime getWoReopenedAt() { return woReopenedAt; }
+    public void setWoReopenedAt(LocalDateTime woReopenedAt) { this.woReopenedAt = woReopenedAt; }
+
 }

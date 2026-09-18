@@ -31,6 +31,7 @@ public class InspectionTaskService {
     private final WorkOrderRepository workOrderRepo;
     private final InspectionTemplateService templateService;
     private final InspectionPlanService planService;
+    private final RectificationService rectificationService;
 
     public InspectionTaskService(InspectionTaskRepository taskRepo,
                                  InspectionTaskPointRepository taskPointRepo,
@@ -43,7 +44,8 @@ public class InspectionTaskService {
                                  EquipmentRepository equipmentRepo,
                                  WorkOrderRepository workOrderRepo,
                                  InspectionTemplateService templateService,
-                                 InspectionPlanService planService) {
+                                 InspectionPlanService planService,
+                                 RectificationService rectificationService) {
         this.taskRepo = taskRepo;
         this.taskPointRepo = taskPointRepo;
         this.recordRepo = recordRepo;
@@ -56,6 +58,7 @@ public class InspectionTaskService {
         this.workOrderRepo = workOrderRepo;
         this.templateService = templateService;
         this.planService = planService;
+        this.rectificationService = rectificationService;
     }
 
     public List<InspectionTask> listAll() {
@@ -416,6 +419,7 @@ public class InspectionTaskService {
             saved.setWorkOrderId(wo.getId());
             saved.setWorkOrderCreated(true);
             saved.setStatus("wo_created");
+            saved.setWoSyncedStatus(wo.getStatus());
             saved = abnormalityRepo.save(saved);
             if (tp != null) {
                 tp.setAbnormalCount((tp.getAbnormalCount() == null ? 0 : tp.getAbnormalCount()) + 1);
@@ -427,21 +431,8 @@ public class InspectionTaskService {
 
     @Transactional
     public InspectionAbnormality recheckAbnormality(Long abnormalityId, String result, String recheckBy) {
-        InspectionAbnormality ab = abnormalityRepo.findById(abnormalityId)
-                .orElseThrow(() -> new IllegalArgumentException("异常不存在"));
-        ab.setRecheckResult(result);
-        ab.setRecheckAt(LocalDateTime.now());
-        ab.setRecheckBy(recheckBy == null ? "" : recheckBy);
-        if ("passed".equals(result)) {
-            ab.setStatus("resolved");
-            ab.setClosedLoop(true);
-            ab.setResolvedAt(LocalDateTime.now());
-        } else if ("failed".equals(result)) {
-            ab.setStatus("recheck_failed");
-        } else {
-            ab.setStatus("rechecked");
-        }
-        return abnormalityRepo.save(ab);
+        // 复检结果只追加事件；是否闭环由 RectificationService 按统一规则判定（复检通过本身不再直接闭环）。
+        return rectificationService.recheck(abnormalityId, result, recheckBy);
     }
 
     private InspectionAbnormality createAbnormalityIfAbsent(InspectionTask task, InspectionTaskPoint tp,
@@ -477,6 +468,7 @@ public class InspectionTaskService {
                 saved.setWorkOrderId(wo.getId());
                 saved.setWorkOrderCreated(true);
                 saved.setStatus("wo_created");
+                saved.setWoSyncedStatus(wo.getStatus());
                 saved = abnormalityRepo.save(saved);
             }
         }
@@ -486,7 +478,6 @@ public class InspectionTaskService {
     private WorkOrder autoConvertToWorkOrder(InspectionAbnormality ab, Equipment eq) {
         if (eq == null || ab.getEquipmentId() == null) return null;
         if (Boolean.TRUE.equals(ab.getWorkOrderCreated()) || ab.getWorkOrderId() != null) return null;
-        if (abnormalityRepo.existsByWorkOrderId(ab.getId())) return null;
         WorkOrder wo = new WorkOrder();
         wo.setEquipmentId(ab.getEquipmentId());
         String woType = ab.getWorkOrderType();
